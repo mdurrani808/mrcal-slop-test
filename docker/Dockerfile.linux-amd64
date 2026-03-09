@@ -1,0 +1,68 @@
+# Build environment for mrcal Linux amd64 binaries.
+# Everything is built from source into /opt/mrcal-deps.
+# The resulting tarball is placed in /artifacts.
+
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# ---------------------------------------------------------------------------
+# System build tools — the bare minimum needed to compile the dep chain.
+# We do NOT install apt packages for any of our target libraries.
+# ---------------------------------------------------------------------------
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Toolchain
+    build-essential \
+    g++ \
+    gfortran \
+    # CMake (needs ≥ 3.20 for SuiteSparse 7.x)
+    gpg \
+    wget \
+    ca-certificates \
+    && wget -qO /tmp/cmake-key.gpg https://apt.kitware.com/keys/kitware-archive-latest.asc \
+    && gpg --dearmor < /tmp/cmake-key.gpg > /usr/share/keyrings/kitware-archive-keyring.gpg \
+    && echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ jammy main' \
+       > /etc/apt/sources.list.d/kitware.list \
+    && apt-get update && apt-get install -y cmake \
+    # Version control
+    git \
+    # mrcal build tools
+    patchelf \
+    perl \
+    # mrcal uses libpng / libjpeg for image I/O in its CLI tools
+    libpng-dev \
+    libjpeg-dev \
+    # Python headers are needed to compile mrcal's Python extension object
+    # even though we won't ship the .so. libmrcal.so itself is Python-free.
+    python3-dev \
+    # For mrbuild and vnlog
+    python3 \
+    # curl for downloading release tarballs
+    curl \
+    # patchelf needs libelf
+    libelf-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# ---------------------------------------------------------------------------
+# Copy build scripts into the image
+# ---------------------------------------------------------------------------
+WORKDIR /mrcal-binaries
+COPY scripts/ scripts/
+
+RUN chmod +x scripts/build-all.sh scripts/deps/*.sh scripts/build-mrcal.sh scripts/package.sh
+
+# ---------------------------------------------------------------------------
+# Build everything.
+# WORK_DIR is scratch space; INSTALL_PREFIX is where libs land; OUT_DIR is
+# where the final tarball is placed (mounted as a volume in CI).
+# ---------------------------------------------------------------------------
+ENV WORK_DIR=/tmp/mrcal-build
+ENV INSTALL_PREFIX=/opt/mrcal-deps
+ENV OUT_DIR=/artifacts
+
+RUN mkdir -p /artifacts
+
+RUN bash scripts/build-all.sh
+
+# The tarball lives in /artifacts.
+# In CI: run with -v ${{ runner.temp }}/artifacts:/artifacts to extract it.

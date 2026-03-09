@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'   # e.g. v2.5, v2.5-unofficial-1
+
+permissions:
+  contents: write   # needed to create a GitHub Release
+
+jobs:
+  # Reuse the build workflow to produce all artifacts
+  build:
+    uses: ./.github/workflows/build.yml
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+          # Downloads every artifact from the build job into artifacts/<name>/
+
+      - name: List artifacts
+        run: find artifacts/ -type f | sort
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "mrcal ${{ github.ref_name }} (unofficial)"
+          body: |
+            ## Unofficial mrcal binaries — ${{ github.ref_name }}
+
+            Pre-built binaries for mrcal. All dependencies are bundled; no system
+            libraries (other than libc/libstdc++) are required.
+
+            ### Platforms
+            | File | Platform |
+            |------|----------|
+            | `mrcal-*-linux-amd64.tar.gz` | Linux x86-64 (also WSL2) |
+            | `mrcal-*-linux-arm64.tar.gz` | Linux ARM64 |
+            | `mrcal-*-Darwin-arm64.tar.gz` | macOS Apple Silicon |
+            | `mrcal-*-Darwin-x86_64.tar.gz` | macOS Intel |
+
+            ### Usage (CMake)
+            ```cmake
+            list(APPEND CMAKE_PREFIX_PATH "/path/to/extracted/mrcal")
+            find_package(mrcal REQUIRED)
+            target_link_libraries(my_target PRIVATE mrcal::mrcal)
+            ```
+
+            ### Source
+            Built from [dkogan/mrcal](https://github.com/dkogan/mrcal).
+            See this repo's `scripts/versions.sh` for exact SHAs of all dependencies.
+          files: artifacts/**/*.tar.gz
+          draft: false
+          prerelease: false
