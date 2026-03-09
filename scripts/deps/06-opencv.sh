@@ -18,6 +18,7 @@ tar -xf "$TARBALL" -C "$SRCDIR" --strip-components=1
 cd "$SRCDIR"
 cmake -B build \
     -DCMAKE_INSTALL_PREFIX="$INSTALL_PREFIX" \
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_PREFIX_PATH="$INSTALL_PREFIX" \
     -DBUILD_LIST="core,imgproc,calib3d,features2d,flann" \
