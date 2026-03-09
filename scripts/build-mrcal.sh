@@ -10,6 +10,7 @@ SRCDIR="$WORK_DIR/mrcal"
 git_clone_or_update "$SRCDIR" "https://github.com/dkogan/mrcal.git" "$MRCAL_REF"
 
 cd "$SRCDIR"
+ln -sfn "$MRBUILD_MK" "$SRCDIR/mrbuild"
 
 # The mrcal Makefile uses re2c to generate parsers from .re files at build time.
 # It also optionally builds a Python extension.  We suppress the Python module

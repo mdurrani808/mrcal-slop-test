@@ -11,8 +11,10 @@ git_clone_or_update "$SRCDIR" "https://github.com/dkogan/libdogleg.git" "$LIBDOG
 
 cd "$SRCDIR"
 
-# mrbuild looks for its Makefile fragments at MRBUILD_MK (set in common.sh).
-# Pass include/lib dirs so the compiler finds our locally-built SuiteSparse + OpenBLAS.
+# choose_mrbuild.mk (included by the project Makefile) looks for a local
+# 'mrbuild/' directory first. Symlink our installed copy so it finds it.
+ln -sfn "$MRBUILD_MK" "$SRCDIR/mrbuild"
+
 make -j"$NPROC" \
     PREFIX="$INSTALL_PREFIX" \
     MRBUILD_MK="$MRBUILD_MK" \

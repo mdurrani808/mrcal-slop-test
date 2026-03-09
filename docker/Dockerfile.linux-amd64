@@ -41,6 +41,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     # patchelf needs libelf
     libelf-dev \
+    # Pre-built OpenBLAS — avoids a ~15-minute from-source build
+    libopenblas-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # ---------------------------------------------------------------------------

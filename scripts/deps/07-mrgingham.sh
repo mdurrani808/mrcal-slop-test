@@ -10,6 +10,7 @@ SRCDIR="$WORK_DIR/mrgingham"
 git_clone_or_update "$SRCDIR" "https://github.com/dkogan/mrgingham.git" "$MRGINGHAM_REF"
 
 cd "$SRCDIR"
+ln -sfn "$MRBUILD_MK" "$SRCDIR/mrbuild"
 make -j"$NPROC" \
     PREFIX="$INSTALL_PREFIX" \
     MRBUILD_MK="$MRBUILD_MK" \
