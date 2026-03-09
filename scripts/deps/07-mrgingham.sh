@@ -12,8 +12,18 @@ git_clone_or_update "$SRCDIR" "https://github.com/dkogan/mrgingham.git" "$MRGING
 cd "$SRCDIR"
 ln -sfn "$MRBUILD_MK" "$SRCDIR/mrbuild"
 
-export CFLAGS="-I$INSTALL_PREFIX/include"
-export CXXFLAGS="-I$INSTALL_PREFIX/include"
+# Boost headers are needed for voronoi tessellation (boost/polygon/voronoi.hpp).
+# On macOS they aren't in a standard search path, so locate them via brew.
+BOOST_INC=""
+if [[ "$(uname -s)" == "Darwin" ]] && command -v brew &>/dev/null; then
+    if ! brew list boost &>/dev/null; then
+        brew install boost
+    fi
+    BOOST_INC="$(brew --prefix boost)/include"
+fi
+
+export CFLAGS="-I$INSTALL_PREFIX/include${BOOST_INC:+ -I$BOOST_INC}"
+export CXXFLAGS="-I$INSTALL_PREFIX/include${BOOST_INC:+ -I$BOOST_INC}"
 export LDFLAGS="-L$INSTALL_PREFIX/lib -Wl,-rpath,$INSTALL_PREFIX/lib"
 
 make -j"$NPROC" PREFIX="$INSTALL_PREFIX"

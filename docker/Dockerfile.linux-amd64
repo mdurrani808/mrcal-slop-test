@@ -43,10 +43,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libelf-dev \
     # chrpath is used by mrbuild's 'make install' to strip build-time RPATHs
     chrpath \
+    # re2c parser generator (build-time tool, not bundled)
+    re2c \
     # Pre-built OpenBLAS — avoids a ~15-minute from-source build
     libopenblas-dev \
     # Pre-built OpenCV — avoids a ~10-minute from-source build
     libopencv-dev \
+    # Boost headers needed by mrgingham (voronoi)
+    libboost-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # ---------------------------------------------------------------------------
