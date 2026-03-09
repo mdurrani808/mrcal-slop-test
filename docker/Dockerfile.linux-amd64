@@ -45,6 +45,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     chrpath \
     # Pre-built OpenBLAS — avoids a ~15-minute from-source build
     libopenblas-dev \
+    # Pre-built OpenCV — avoids a ~10-minute from-source build
+    libopencv-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # ---------------------------------------------------------------------------
