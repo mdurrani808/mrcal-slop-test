@@ -15,15 +15,11 @@ cd "$SRCDIR"
 # 'mrbuild/' directory first. Symlink our installed copy so it finds it.
 ln -sfn "$MRBUILD_MK" "$SRCDIR/mrbuild"
 
-make -j"$NPROC" \
-    PREFIX="$INSTALL_PREFIX" \
-    MRBUILD_MK="$MRBUILD_MK" \
-    CFLAGS="-I$INSTALL_PREFIX/include" \
-    LDFLAGS="-L$INSTALL_PREFIX/lib -Wl,-rpath,$INSTALL_PREFIX/lib"
+export CFLAGS="-I$INSTALL_PREFIX/include"
+export LDFLAGS="-L$INSTALL_PREFIX/lib -Wl,-rpath,$INSTALL_PREFIX/lib"
 
-make install \
-    PREFIX="$INSTALL_PREFIX" \
-    MRBUILD_MK="$MRBUILD_MK"
+make -j"$NPROC" PREFIX="$INSTALL_PREFIX"
+make install   PREFIX="$INSTALL_PREFIX"
 
 mark_built "libdogleg"
 log "libdogleg installed."

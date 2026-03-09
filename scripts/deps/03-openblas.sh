@@ -51,16 +51,24 @@ EOF
 }
 
 # ---------------------------------------------------------------------------
-# Fast path: Linux with apt-installed libopenblas-dev
+# Fast path: Linux with a system-installed libopenblas (e.g. apt libopenblas-dev)
 # ---------------------------------------------------------------------------
-if [[ "$OS" == "Linux" ]] && pkg-config --exists openblas 2>/dev/null; then
-    log "Using system OpenBLAS."
-    LIBDIR="$(pkg-config --variable=libdir openblas)"
-    INCDIR="$(pkg-config --variable=includedir openblas)"
-    install_from_prefix "$LIBDIR" "$INCDIR"
-    mark_built "openblas"
-    log "OpenBLAS installed from system packages."
-    exit 0
+if [[ "$OS" == "Linux" ]]; then
+    # ldconfig -p is always available and doesn't require pkg-config.
+    LIBOPENBLAS="$(ldconfig -p 2>/dev/null | awk '/libopenblas\.so /{print $NF}' | head -1)"
+    if [[ -n "$LIBOPENBLAS" ]]; then
+        log "Using system OpenBLAS at $LIBOPENBLAS"
+        LIBDIR="$(dirname "$LIBOPENBLAS")"
+        # Find the header directory.
+        INCDIR=/usr/include
+        for d in /usr/include/openblas /usr/include/x86_64-linux-gnu /usr/include/aarch64-linux-gnu; do
+            [[ -f "$d/cblas.h" ]] && { INCDIR="$d"; break; }
+        done
+        install_from_prefix "$LIBDIR" "$INCDIR"
+        mark_built "openblas"
+        log "OpenBLAS installed from system packages."
+        exit 0
+    fi
 fi
 
 # ---------------------------------------------------------------------------

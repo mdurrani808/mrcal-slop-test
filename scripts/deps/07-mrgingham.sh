@@ -11,19 +11,15 @@ git_clone_or_update "$SRCDIR" "https://github.com/dkogan/mrgingham.git" "$MRGING
 
 cd "$SRCDIR"
 ln -sfn "$MRBUILD_MK" "$SRCDIR/mrbuild"
-make -j"$NPROC" \
-    PREFIX="$INSTALL_PREFIX" \
-    MRBUILD_MK="$MRBUILD_MK" \
-    CFLAGS="-I$INSTALL_PREFIX/include" \
-    CXXFLAGS="-I$INSTALL_PREFIX/include" \
-    LDFLAGS="-L$INSTALL_PREFIX/lib -Wl,-rpath,$INSTALL_PREFIX/lib"
+
+export CFLAGS="-I$INSTALL_PREFIX/include"
+export CXXFLAGS="-I$INSTALL_PREFIX/include"
+export LDFLAGS="-L$INSTALL_PREFIX/lib -Wl,-rpath,$INSTALL_PREFIX/lib"
+
+make -j"$NPROC" PREFIX="$INSTALL_PREFIX"
 
 # Install C++ library + headers + CLI tools; skip Python module.
-make install \
-    PREFIX="$INSTALL_PREFIX" \
-    MRBUILD_MK="$MRBUILD_MK" \
-    DIST_PY3_MODULES= \
-    DIST_PY2_MODULES=
+make install PREFIX="$INSTALL_PREFIX" DIST_PY3_MODULES= DIST_PY2_MODULES=
 
 mark_built "mrgingham"
 log "mrgingham installed."
