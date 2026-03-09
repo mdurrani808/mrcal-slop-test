@@ -18,7 +18,7 @@ export LDFLAGS="-L$INSTALL_PREFIX/lib -Wl,-rpath,$INSTALL_PREFIX/lib"
 make -j"$NPROC" PREFIX="$INSTALL_PREFIX"
 
 # Skip Python and Perl module distribution; we only want the C lib + CLI tools.
-make install PREFIX="$INSTALL_PREFIX" DESTDIR=/ DIST_PY3_MODULES= DIST_PY2_MODULES= DIST_PERL_MODULES=
+make install "${MRBUILD_INSTALL_ARGS[@]}" DIST_PY3_MODULES= DIST_PY2_MODULES= DIST_PERL_MODULES=
 
 mark_built "vnlog"
 log "vnlog installed."

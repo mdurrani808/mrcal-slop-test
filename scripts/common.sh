@@ -21,6 +21,26 @@ export PATH="$INSTALL_PREFIX/bin:$PATH"
 # Point projects at our local mrbuild installation.
 export MRBUILD_MK="$INSTALL_PREFIX/share/mrbuild"
 
+# Standard args for every mrbuild 'make install'.
+#
+# DESTDIR=$INSTALL_PREFIX  — install directly into our prefix (non-empty,
+#                            satisfies mrbuild's DESTDIR check).
+# USRLIB=lib               — override mrbuild's multiarch lib path
+#                            (usr/lib/x86_64-linux-gnu on Debian) so .so files
+#                            land in $INSTALL_PREFIX/lib/ not /usr/lib/…
+# INSTALL_ROOT_BIN/MAN     — strip the /usr prefix from the default paths.
+# INSTALL_ROOT_INCLUDE     — preserve the per-project subdir ($(PROJECT_NAME))
+#                            but rooted at /include rather than /usr/include.
+MRBUILD_INSTALL_ARGS=(
+    "DESTDIR=$INSTALL_PREFIX"
+    USRLIB=lib
+    INSTALL_ROOT_BIN=/bin
+    'INSTALL_ROOT_INCLUDE=/include/$(PROJECT_NAME)'
+    INSTALL_ROOT_MAN=/share/man
+    INSTALL_ROOT_DATA=/share
+    INSTALL_ROOT_DOC=/share/doc
+)
+
 log() { echo "==> $*"; }
 
 # Skip a build step if sentinel file already exists.
