@@ -30,7 +30,7 @@ make -j"$NPROC" PREFIX="$INSTALL_PREFIX" USE_LIBELAS=0
 # Install C library, headers, and CLI tools.
 # Skip Python extension — libmrcal.so itself does NOT depend on libpython.so
 # (mrcal uses a symbol-weakening trick), so our binary consumers are Python-free.
-make install PREFIX="$INSTALL_PREFIX" DESTDIR= DIST_PY3_MODULES= DIST_PY2_MODULES=
+make install PREFIX="$INSTALL_PREFIX" DESTDIR=/ DIST_PY3_MODULES= DIST_PY2_MODULES=
 
 mark_built "mrcal"
 log "mrcal installed."
