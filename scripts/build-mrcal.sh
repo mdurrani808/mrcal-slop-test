@@ -32,13 +32,22 @@ fi
 
 NUMPY_INC="$(python3 -c 'import numpy; print(numpy.get_include())' 2>/dev/null || true)"
 
-# stb_image.h — on macOS it's not in a standard path.
+# numpysane is required by mrcal-genpywrap.py at build time.
+if ! python3 -c 'import numpysane' 2>/dev/null; then
+    pip3 install --quiet numpysane
+fi
+
+# stb_image.h — on macOS brew has no 'stb' formula; download the header directly.
 STB_INC=""
-if [[ "$(uname -s)" == "Darwin" ]] && command -v brew &>/dev/null; then
-    if ! brew list stb &>/dev/null; then
-        brew install stb
+if [[ "$(uname -s)" == "Darwin" ]]; then
+    STB_INC="$INSTALL_PREFIX/include/stb"
+    if [[ ! -f "$STB_INC/stb_image.h" ]]; then
+        mkdir -p "$STB_INC"
+        curl -fsSL "https://raw.githubusercontent.com/nothings/stb/master/stb_image.h" \
+            -o "$STB_INC/stb_image.h"
+        curl -fsSL "https://raw.githubusercontent.com/nothings/stb/master/stb_image_write.h" \
+            -o "$STB_INC/stb_image_write.h"
     fi
-    STB_INC="$(brew --prefix stb)/include"
 fi
 
 export CFLAGS="-I$INSTALL_PREFIX/include${NUMPY_INC:+ -I$NUMPY_INC}${STB_INC:+ -I$STB_INC}"
