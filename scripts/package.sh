@@ -13,13 +13,16 @@
 set -euo pipefail
 source "$(dirname "$0")/common.sh"
 
-OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
+# OS comes from common.sh ("Linux" or "Darwin"); use lowercase only for the filename.
+OS_LOWER="$(echo "$OS" | tr '[:upper:]' '[:lower:]')"
 ARCH="$(uname -m)"
 MRCAL_VERSION="${MRCAL_VERSION:-$(git -C "$WORK_DIR/mrcal" describe --tags --always 2>/dev/null || echo "dev")}"
-PKG_NAME="mrcal-${MRCAL_VERSION}-${OS}-${ARCH}"
+PKG_NAME="mrcal-${MRCAL_VERSION}-${OS_LOWER}-${ARCH}"
 STAGE_DIR="$WORK_DIR/stage/$PKG_NAME"
 OUT_DIR="${OUT_DIR:-$REPO_ROOT/artifacts}"
 
+# Always start from a clean stage dir so reruns don't include stale files.
+rm -rf "$STAGE_DIR"
 mkdir -p "$STAGE_DIR"/{bin,lib,include} "$OUT_DIR"
 
 # ---------------------------------------------------------------------------
@@ -120,8 +123,7 @@ fix_rpath_macos() {
     fi
 }
 
-find "$STAGE_DIR/bin" "$STAGE_DIR/lib" -maxdepth 1 \( -type f -o -type l \) | while read -r f; do
-    [[ -L "$f" ]] && continue   # skip symlinks themselves
+find "$STAGE_DIR/bin" "$STAGE_DIR/lib" -maxdepth 1 -type f | while read -r f; do
     if [[ "$OS" == "Linux" ]]; then
         fix_rpath_linux "$f"
     elif [[ "$OS" == "Darwin" ]]; then
@@ -192,7 +194,7 @@ set(MRCAL_LIBRARIES    "${_mrcal_root}/lib/${_mrcal_libname}")
 EOF
 
 # Version file
-MRCAL_VER_MAJOR="$(echo "$MRCAL_VERSION" | grep -oP '^\d+' || echo 0)"
+MRCAL_VER_MAJOR="$(echo "$MRCAL_VERSION" | sed 's/^[^0-9]*\([0-9]*\).*/\1/' || echo 0)"
 cat > "$CMAKE_DIR/mrcal-config-version.cmake" <<EOF
 set(PACKAGE_VERSION "$MRCAL_VERSION")
 set(PACKAGE_VERSION_MAJOR "$MRCAL_VER_MAJOR")

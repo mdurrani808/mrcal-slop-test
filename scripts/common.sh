@@ -13,6 +13,12 @@ INSTALL_PREFIX="${INSTALL_PREFIX:-$REPO_ROOT/install}"
 # Parallelism
 NPROC="${NPROC:-$(nproc 2>/dev/null || sysctl -n hw.logicalcpu 2>/dev/null || echo 4)}"
 
+# Operating system — raw uname output: "Linux" or "Darwin".
+OS="$(uname -s)"
+
+is_linux() { [[ "$OS" == "Linux" ]]; }
+is_macos() { [[ "$OS" == "Darwin" ]]; }
+
 export PKG_CONFIG_PATH="$INSTALL_PREFIX/lib/pkgconfig:$INSTALL_PREFIX/lib64/pkgconfig:${PKG_CONFIG_PATH:-}"
 export CMAKE_PREFIX_PATH="$INSTALL_PREFIX:${CMAKE_PREFIX_PATH:-}"
 export PATH="$INSTALL_PREFIX/bin:$PATH"
@@ -56,6 +62,18 @@ already_built() {
 
 mark_built() {
     touch "$WORK_DIR/.built_$1"
+}
+
+# Download a source tarball (skips curl if already on disk), then extract it.
+# Usage: download_tarball <url> <tarball_path> <extract_dir> [strip_components]
+download_tarball() {
+    local url="$1" tarball="$2" destdir="$3" strip="${4:-1}"
+    if [[ ! -f "$tarball" ]]; then
+        log "Downloading $(basename "$tarball")..."
+        curl -fsSL "$url" -o "$tarball"
+    fi
+    mkdir -p "$destdir"
+    tar -xf "$tarball" -C "$destdir" --strip-components="$strip"
 }
 
 # Clone or update a git repo, then checkout a specific ref.

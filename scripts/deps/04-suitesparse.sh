@@ -14,8 +14,6 @@ source "$(dirname "$0")/../versions.sh"
 
 already_built "suitesparse" && exit 0
 
-OS="$(uname -s)"
-
 # ---------------------------------------------------------------------------
 # Helper: copy an installed SuiteSparse into INSTALL_PREFIX.
 # Arguments: <lib-dir> <include-dir> [cmake-dir]
@@ -103,11 +101,7 @@ log "Building SuiteSparse $SUITESPARSE_VERSION from source..."
 SRCDIR="$WORK_DIR/SuiteSparse"
 URL="https://github.com/DrTimothyAldenDavis/SuiteSparse/archive/refs/tags/v$SUITESPARSE_VERSION.tar.gz"
 TARBALL="$WORK_DIR/SuiteSparse-$SUITESPARSE_VERSION.tar.gz"
-
-log "Downloading SuiteSparse $SUITESPARSE_VERSION"
-curl -fsSL "$URL" -o "$TARBALL"
-mkdir -p "$SRCDIR"
-tar -xf "$TARBALL" -C "$SRCDIR" --strip-components=1
+download_tarball "$URL" "$TARBALL" "$SRCDIR"
 
 OPENBLAS_LIB="$INSTALL_PREFIX/lib/libopenblas.so"
 if [[ "$OS" == "Darwin" ]]; then

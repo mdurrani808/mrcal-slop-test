@@ -11,8 +11,6 @@ source "$(dirname "$0")/../versions.sh"
 
 already_built "opencv" && exit 0
 
-OS="$(uname -s)"
-
 # ---------------------------------------------------------------------------
 # Helper: copy an installed opencv into INSTALL_PREFIX.
 # Arguments: <lib-dir> <include-dir> [cmake-config-dir]
@@ -89,11 +87,7 @@ log "No pre-built OpenCV found. Building from source (this will take a while)...
 SRCDIR="$WORK_DIR/opencv"
 URL="https://github.com/opencv/opencv/archive/refs/tags/$OPENCV_VERSION.tar.gz"
 TARBALL="$WORK_DIR/opencv-$OPENCV_VERSION.tar.gz"
-
-log "Downloading OpenCV $OPENCV_VERSION"
-curl -fsSL "$URL" -o "$TARBALL"
-mkdir -p "$SRCDIR"
-tar -xf "$TARBALL" -C "$SRCDIR" --strip-components=1
+download_tarball "$URL" "$TARBALL" "$SRCDIR"
 
 cd "$SRCDIR"
 cmake -B build \

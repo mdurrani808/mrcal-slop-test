@@ -15,7 +15,7 @@ ln -sfn "$MRBUILD_MK" "$SRCDIR/mrbuild"
 # mrgingham_pywrap.c uses GCC-specific nested functions that Clang doesn't
 # support. On macOS we replace it with a minimal stub that compiles cleanly.
 # The Python extension is suppressed at install time anyway (DIST_PY3_MODULES=).
-if [[ "$(uname -s)" == "Darwin" ]]; then
+if is_macos; then
     cat > "$SRCDIR/mrgingham_pywrap.c" <<'EOF'
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
@@ -29,7 +29,7 @@ fi
 # Boost headers are needed for voronoi tessellation (boost/polygon/voronoi.hpp).
 # On macOS they aren't in a standard search path, so locate them via brew.
 BOOST_INC=""
-if [[ "$(uname -s)" == "Darwin" ]] && command -v brew &>/dev/null; then
+if is_macos && command -v brew &>/dev/null; then
     if ! brew list boost &>/dev/null; then
         brew install boost
     fi

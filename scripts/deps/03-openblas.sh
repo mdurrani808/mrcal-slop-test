@@ -11,8 +11,6 @@ source "$(dirname "$0")/../versions.sh"
 
 already_built "openblas" && exit 0
 
-OS="$(uname -s)"
-
 # ---------------------------------------------------------------------------
 # Helper: copy an installed openblas into INSTALL_PREFIX.
 # Arguments: <lib-dir> <include-dir>
@@ -105,11 +103,7 @@ log "No pre-built OpenBLAS found. Building from source (this will take a while).
 SRCDIR="$WORK_DIR/OpenBLAS"
 URL="https://github.com/OpenMathLib/OpenBLAS/releases/download/v$OPENBLAS_VERSION/OpenBLAS-$OPENBLAS_VERSION.tar.gz"
 TARBALL="$WORK_DIR/OpenBLAS-$OPENBLAS_VERSION.tar.gz"
-
-log "Downloading OpenBLAS $OPENBLAS_VERSION"
-curl -fsSL "$URL" -o "$TARBALL"
-mkdir -p "$SRCDIR"
-tar -xf "$TARBALL" -C "$SRCDIR" --strip-components=1
+download_tarball "$URL" "$TARBALL" "$SRCDIR"
 
 EXTRA_FLAGS=""
 if [[ "$OS" == "Darwin" ]]; then

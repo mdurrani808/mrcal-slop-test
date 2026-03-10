@@ -35,25 +35,27 @@ NUMPY_INC="$(python3 -c 'import numpy; print(numpy.get_include())' 2>/dev/null |
 # numpysane is required by mrcal-genpywrap.py at build time.
 # setuptools provides distutils (removed from stdlib in Python 3.12+) needed by numpysane.
 if ! python3 -c 'import numpysane' 2>/dev/null; then
-    if [[ "$(uname -s)" == "Darwin" ]]; then
-        python3 -m pip install --quiet --break-system-packages setuptools numpysane
-    else
-        python3 -m pip install --quiet setuptools numpysane
-    fi
+    # --break-system-packages is required on PEP 668 systems (macOS, Ubuntu 24.04+).
+    python3 -m pip install --quiet --break-system-packages setuptools numpysane 2>/dev/null \
+        || python3 -m pip install --quiet setuptools numpysane
 fi
 
 # On macOS, libpng and libjpeg are not in the default include path — add Homebrew prefix.
-PNG_INC=""
-if [[ "$(uname -s)" == "Darwin" ]] && command -v brew &>/dev/null; then
+PNG_CFLAGS=""
+PNG_LDFLAGS=""
+if is_macos && command -v brew &>/dev/null; then
     for pkg in libpng jpeg jpeg-turbo; do
         prefix="$(brew --prefix "$pkg" 2>/dev/null || true)"
-        [[ -n "$prefix" && -d "$prefix/include" ]] && PNG_INC="$PNG_INC -I$prefix/include -L$prefix/lib"
+        if [[ -n "$prefix" && -d "$prefix/include" ]]; then
+            PNG_CFLAGS="$PNG_CFLAGS -I$prefix/include"
+            PNG_LDFLAGS="$PNG_LDFLAGS -L$prefix/lib"
+        fi
     done
 fi
 
 # stb_image.h — on macOS brew has no 'stb' formula; download the header directly.
 STB_INC=""
-if [[ "$(uname -s)" == "Darwin" ]]; then
+if is_macos; then
     STB_INC="$INSTALL_PREFIX/include/stb"
     if [[ ! -f "$STB_INC/stb_image.h" ]]; then
         mkdir -p "$STB_INC"
@@ -64,9 +66,9 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
     fi
 fi
 
-export CFLAGS="-I$INSTALL_PREFIX/include${NUMPY_INC:+ -I$NUMPY_INC}${STB_INC:+ -I$STB_INC}${PNG_INC:+ $PNG_INC}"
-export CXXFLAGS="-I$INSTALL_PREFIX/include${NUMPY_INC:+ -I$NUMPY_INC}${STB_INC:+ -I$STB_INC}${PNG_INC:+ $PNG_INC}"
-export LDFLAGS="-L$INSTALL_PREFIX/lib -Wl,-rpath,$INSTALL_PREFIX/lib${PNG_INC:+ $PNG_INC}"
+export CFLAGS="-I$INSTALL_PREFIX/include${NUMPY_INC:+ -I$NUMPY_INC}${STB_INC:+ -I$STB_INC}${PNG_CFLAGS:+ $PNG_CFLAGS}"
+export CXXFLAGS="-I$INSTALL_PREFIX/include${NUMPY_INC:+ -I$NUMPY_INC}${STB_INC:+ -I$STB_INC}${PNG_CFLAGS:+ $PNG_CFLAGS}"
+export LDFLAGS="-L$INSTALL_PREFIX/lib -Wl,-rpath,$INSTALL_PREFIX/lib${PNG_LDFLAGS:+ $PNG_LDFLAGS}"
 
 make -j"$NPROC" PREFIX="$INSTALL_PREFIX" USE_LIBELAS=
 

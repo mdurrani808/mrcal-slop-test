@@ -9,8 +9,6 @@ source "$(dirname "$0")/../versions.sh"
 
 already_built "re2c" && exit 0
 
-OS="$(uname -s)"
-
 # ---------------------------------------------------------------------------
 # Fast path: re2c already available (system apt or brew install)
 # ---------------------------------------------------------------------------
@@ -47,11 +45,7 @@ log "Building re2c $RE2C_VERSION from source..."
 SRCDIR="$WORK_DIR/re2c"
 URL="https://github.com/skvadrik/re2c/releases/download/$RE2C_VERSION/re2c-$RE2C_VERSION.tar.xz"
 TARBALL="$WORK_DIR/re2c-$RE2C_VERSION.tar.xz"
-
-log "Downloading re2c $RE2C_VERSION"
-curl -fsSL "$URL" -o "$TARBALL"
-mkdir -p "$SRCDIR"
-tar -xf "$TARBALL" -C "$SRCDIR" --strip-components=1
+download_tarball "$URL" "$TARBALL" "$SRCDIR"
 
 mkdir -p "$SRCDIR/build"
 cd "$SRCDIR/build"

@@ -13,6 +13,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 run_step() {
     local script="$1"
+    [[ -f "$script" ]] || { echo "ERROR: step script not found: $script" >&2; exit 1; }
     echo ""
     echo "================================================================"
     echo " STEP: $script"
