@@ -33,11 +33,12 @@ fi
 NUMPY_INC="$(python3 -c 'import numpy; print(numpy.get_include())' 2>/dev/null || true)"
 
 # numpysane is required by mrcal-genpywrap.py at build time.
+# setuptools provides distutils (removed from stdlib in Python 3.12+) needed by numpysane.
 if ! python3 -c 'import numpysane' 2>/dev/null; then
     if [[ "$(uname -s)" == "Darwin" ]]; then
-        python3 -m pip install --quiet --break-system-packages numpysane
+        python3 -m pip install --quiet --break-system-packages setuptools numpysane
     else
-        python3 -m pip install --quiet numpysane
+        python3 -m pip install --quiet setuptools numpysane
     fi
 fi
 
