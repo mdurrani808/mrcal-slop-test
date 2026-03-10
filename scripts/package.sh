@@ -13,10 +13,10 @@
 set -euo pipefail
 source "$(dirname "$0")/common.sh"
 
-OS="$(uname -s)"
+OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
 ARCH="$(uname -m)"
 MRCAL_VERSION="${MRCAL_VERSION:-$(git -C "$WORK_DIR/mrcal" describe --tags --always 2>/dev/null || echo "dev")}"
-PKG_NAME="mrcal-${MRCAL_VERSION}-${OS,,}-${ARCH}"
+PKG_NAME="mrcal-${MRCAL_VERSION}-${OS}-${ARCH}"
 STAGE_DIR="$WORK_DIR/stage/$PKG_NAME"
 OUT_DIR="${OUT_DIR:-$REPO_ROOT/artifacts}"
 
