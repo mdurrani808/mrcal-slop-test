@@ -41,6 +41,15 @@ if ! python3 -c 'import numpysane' 2>/dev/null; then
     fi
 fi
 
+# On macOS, libpng and libjpeg are not in the default include path — add Homebrew prefix.
+PNG_INC=""
+if [[ "$(uname -s)" == "Darwin" ]] && command -v brew &>/dev/null; then
+    for pkg in libpng libjpeg; do
+        prefix="$(brew --prefix "$pkg" 2>/dev/null || true)"
+        [[ -n "$prefix" && -d "$prefix/include" ]] && PNG_INC="$PNG_INC -I$prefix/include -L$prefix/lib"
+    done
+fi
+
 # stb_image.h — on macOS brew has no 'stb' formula; download the header directly.
 STB_INC=""
 if [[ "$(uname -s)" == "Darwin" ]]; then
@@ -54,9 +63,9 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
     fi
 fi
 
-export CFLAGS="-I$INSTALL_PREFIX/include${NUMPY_INC:+ -I$NUMPY_INC}${STB_INC:+ -I$STB_INC}"
-export CXXFLAGS="-I$INSTALL_PREFIX/include${NUMPY_INC:+ -I$NUMPY_INC}${STB_INC:+ -I$STB_INC}"
-export LDFLAGS="-L$INSTALL_PREFIX/lib -Wl,-rpath,$INSTALL_PREFIX/lib"
+export CFLAGS="-I$INSTALL_PREFIX/include${NUMPY_INC:+ -I$NUMPY_INC}${STB_INC:+ -I$STB_INC}${PNG_INC:+ $PNG_INC}"
+export CXXFLAGS="-I$INSTALL_PREFIX/include${NUMPY_INC:+ -I$NUMPY_INC}${STB_INC:+ -I$STB_INC}${PNG_INC:+ $PNG_INC}"
+export LDFLAGS="-L$INSTALL_PREFIX/lib -Wl,-rpath,$INSTALL_PREFIX/lib${PNG_INC:+ $PNG_INC}"
 
 make -j"$NPROC" PREFIX="$INSTALL_PREFIX" USE_LIBELAS=
 
