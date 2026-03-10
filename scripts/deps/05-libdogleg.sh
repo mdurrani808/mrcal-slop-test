@@ -19,7 +19,7 @@ export CFLAGS="-I$INSTALL_PREFIX/include"
 export LDFLAGS="-L$INSTALL_PREFIX/lib -Wl,-rpath,$INSTALL_PREFIX/lib"
 
 make -j"$NPROC" PREFIX="$INSTALL_PREFIX"
-make install "${MRBUILD_INSTALL_ARGS[@]}"
+make install "${MRBUILD_INSTALL_ARGS[@]}" INSTALL_ROOT_INCLUDE=/include
 
 mark_built "libdogleg"
 log "libdogleg installed."
