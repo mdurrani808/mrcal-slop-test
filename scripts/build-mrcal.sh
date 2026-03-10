@@ -12,6 +12,15 @@ git_clone_or_update "$SRCDIR" "https://github.com/dkogan/mrcal.git" "$MRCAL_REF"
 cd "$SRCDIR"
 ln -sfn "$MRBUILD_MK" "$SRCDIR/mrbuild"
 
+# minimath_generate.pl requires List::MoreUtils.
+if ! perl -MList::MoreUtils -e1 2>/dev/null; then
+    if command -v apt-get &>/dev/null; then
+        apt-get install -y --no-install-recommends liblist-moreutils-perl
+    elif command -v brew &>/dev/null; then
+        brew install cpanminus && cpanm --notest List::MoreUtils
+    fi
+fi
+
 # The mrcal Makefile uses re2c to generate parsers from .re files at build time.
 # It also optionally builds a Python extension.  We suppress the Python module
 # at install time; we still need python3-dev headers to compile (because some

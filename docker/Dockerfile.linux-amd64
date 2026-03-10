@@ -38,6 +38,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-numpy \
     # For mrbuild and vnlog
     python3 \
+    # Perl module needed by mrcal's minimath_generate.pl
+    liblist-moreutils-perl \
     # curl for downloading release tarballs
     curl \
     # patchelf needs libelf

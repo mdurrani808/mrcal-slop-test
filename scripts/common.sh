@@ -36,9 +36,9 @@ MRBUILD_INSTALL_ARGS=(
     USRLIB=lib
     INSTALL_ROOT_BIN=/bin
     'INSTALL_ROOT_INCLUDE=/include/$(PROJECT_NAME)'
-    INSTALL_ROOT_MAN=/share/man
     INSTALL_ROOT_DATA=/share
     INSTALL_ROOT_DOC=/share/doc
+    DIST_MAN=       # skip man pages — not shipped and generation can fail
 )
 
 log() { echo "==> $*"; }
