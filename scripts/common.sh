@@ -65,12 +65,19 @@ mark_built() {
 }
 
 # Download a source tarball (skips curl if already on disk), then extract it.
+# Retries the download up to 3 times on transient network failures.
 # Usage: download_tarball <url> <tarball_path> <extract_dir> [strip_components]
 download_tarball() {
     local url="$1" tarball="$2" destdir="$3" strip="${4:-1}"
     if [[ ! -f "$tarball" ]]; then
         log "Downloading $(basename "$tarball")..."
-        curl -fsSL "$url" -o "$tarball"
+        for attempt in 1 2 3; do
+            curl -fsSL "$url" -o "$tarball" && break
+            echo "Download attempt $attempt failed for $(basename "$tarball"), retrying..." >&2
+            rm -f "$tarball"
+            sleep 5
+        done
+        # If curl still failed after all retries the file won't exist; let tar fail loudly.
     fi
     mkdir -p "$destdir"
     tar -xf "$tarball" -C "$destdir" --strip-components="$strip"

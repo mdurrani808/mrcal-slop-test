@@ -17,7 +17,13 @@ if ! perl -MList::MoreUtils -e1 2>/dev/null; then
     if command -v apt-get &>/dev/null; then
         apt-get install -y --no-install-recommends liblist-moreutils-perl
     elif command -v brew &>/dev/null; then
-        brew install cpanminus && cpanm --notest List::MoreUtils
+        brew install cpanminus
+        # cpanm can fail with transient CPAN mirror errors; retry a few times.
+        for attempt in 1 2 3; do
+            cpanm --notest List::MoreUtils && break
+            echo "cpanm attempt $attempt failed, retrying..." >&2
+            sleep 5
+        done
     fi
 fi
 
