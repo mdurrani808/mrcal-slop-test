@@ -12,6 +12,13 @@ git_clone_or_update "$SRCDIR" "https://github.com/dkogan/vnlog.git" "$VNLOG_REF"
 cd "$SRCDIR"
 ln -sfn "$MRBUILD_MK" "$SRCDIR/mrbuild"
 
+# vnlog's GNUmakefile has 'install: doc' where doc generates man pages via the
+# pattern rule 'man1/%.1: % | man1/'.  GNU make rejects the pattern rule if the
+# order-only prerequisite directory doesn't exist and has no creation rule.
+# Pre-create the directories so pod2man can run (pages are generated but not
+# installed since DIST_MAN= is passed to make install).
+mkdir -p "$SRCDIR/man1" "$SRCDIR/man3"
+
 export CFLAGS="-I$INSTALL_PREFIX/include"
 export LDFLAGS="-L$INSTALL_PREFIX/lib -Wl,-rpath,$INSTALL_PREFIX/lib"
 

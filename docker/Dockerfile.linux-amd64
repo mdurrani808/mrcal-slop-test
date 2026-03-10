@@ -54,6 +54,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libopencv-dev \
     # Boost headers needed by mrgingham (voronoi)
     libboost-dev \
+    # stb single-file libraries needed by mrcal (stb_image.h)
+    libstb-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # ---------------------------------------------------------------------------

@@ -32,8 +32,17 @@ fi
 
 NUMPY_INC="$(python3 -c 'import numpy; print(numpy.get_include())' 2>/dev/null || true)"
 
-export CFLAGS="-I$INSTALL_PREFIX/include${NUMPY_INC:+ -I$NUMPY_INC}"
-export CXXFLAGS="-I$INSTALL_PREFIX/include${NUMPY_INC:+ -I$NUMPY_INC}"
+# stb_image.h — on macOS it's not in a standard path.
+STB_INC=""
+if [[ "$(uname -s)" == "Darwin" ]] && command -v brew &>/dev/null; then
+    if ! brew list stb &>/dev/null; then
+        brew install stb
+    fi
+    STB_INC="$(brew --prefix stb)/include"
+fi
+
+export CFLAGS="-I$INSTALL_PREFIX/include${NUMPY_INC:+ -I$NUMPY_INC}${STB_INC:+ -I$STB_INC}"
+export CXXFLAGS="-I$INSTALL_PREFIX/include${NUMPY_INC:+ -I$NUMPY_INC}${STB_INC:+ -I$STB_INC}"
 export LDFLAGS="-L$INSTALL_PREFIX/lib -Wl,-rpath,$INSTALL_PREFIX/lib"
 
 make -j"$NPROC" PREFIX="$INSTALL_PREFIX" USE_LIBELAS=0
