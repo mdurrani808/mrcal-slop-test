@@ -73,3 +73,10 @@ git_clone_or_update() {
 }
 
 mkdir -p "$WORK_DIR" "$INSTALL_PREFIX"
+
+# mrbuild's install step has several post-install operations that use
+# $(DESTDIR)/usr/bin/ hardcoded (chrpath, chmod) even when INSTALL_ROOT_BIN
+# is overridden to /bin.  Create a usr/bin symlink so those operations find
+# the right files without error.
+mkdir -p "$INSTALL_PREFIX/bin" "$INSTALL_PREFIX/usr"
+ln -sfn "$INSTALL_PREFIX/bin" "$INSTALL_PREFIX/usr/bin"
