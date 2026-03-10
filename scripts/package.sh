@@ -87,6 +87,30 @@ for lib in "${OWNED_LIBS[@]}"; do
     copy_lib "$lib"
 done
 
+# Some deps are installed via the system package manager (apt/brew) rather than
+# built into $INSTALL_PREFIX, so copy_lib won't find them.  Bundle them
+# explicitly so the tarball is self-contained.
+#
+# libstb — Ubuntu packages stb_image as a shared lib (libstb.so.0); mrcal
+#           links against it dynamically on Linux.
+if is_linux; then
+    SYSTEM_LIB_SEARCH_DIRS=(
+        /usr/lib
+        /usr/lib/x86_64-linux-gnu
+        /usr/lib/aarch64-linux-gnu
+        /usr/lib64
+    )
+    for syslib in libstb; do
+        for dir in "${SYSTEM_LIB_SEARCH_DIRS[@]}"; do
+            [[ -d "$dir" ]] || continue
+            find "$dir" -maxdepth 1 -name "${syslib}.so*" -not -type d \
+                2>/dev/null | while read -r f; do
+                    cp -a "$f" "$STAGE_DIR/lib/" 2>/dev/null || true
+                done
+        done
+    done
+fi
+
 # ---------------------------------------------------------------------------
 # 3. Collect headers (mrcal public API only)
 # ---------------------------------------------------------------------------
