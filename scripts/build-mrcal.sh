@@ -45,7 +45,7 @@ export CFLAGS="-I$INSTALL_PREFIX/include${NUMPY_INC:+ -I$NUMPY_INC}${STB_INC:+ -
 export CXXFLAGS="-I$INSTALL_PREFIX/include${NUMPY_INC:+ -I$NUMPY_INC}${STB_INC:+ -I$STB_INC}"
 export LDFLAGS="-L$INSTALL_PREFIX/lib -Wl,-rpath,$INSTALL_PREFIX/lib"
 
-make -j"$NPROC" PREFIX="$INSTALL_PREFIX" USE_LIBELAS=0
+make -j"$NPROC" PREFIX="$INSTALL_PREFIX" USE_LIBELAS=
 
 # Install C library, headers, and CLI tools.
 # Skip Python extension — libmrcal.so itself does NOT depend on libpython.so
