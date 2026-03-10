@@ -63,13 +63,17 @@ OWNED_LIBS=(
 
 copy_lib() {
     local name="$1"
+    local search_dirs=()
+    [[ -d "$INSTALL_PREFIX/lib" ]]   && search_dirs+=("$INSTALL_PREFIX/lib")
+    [[ -d "$INSTALL_PREFIX/lib64" ]] && search_dirs+=("$INSTALL_PREFIX/lib64")
+    [[ ${#search_dirs[@]} -eq 0 ]] && return 0
     # Match .so* or .dylib on macOS
-    find "$INSTALL_PREFIX/lib" "$INSTALL_PREFIX/lib64" \
+    find "${search_dirs[@]}" \
         -maxdepth 1 \( -name "${name}.so*" -o -name "${name}.dylib" -o -name "${name}.*.dylib" \) \
         -not -type d \
         2>/dev/null | while read -r f; do
             cp -a "$f" "$STAGE_DIR/lib/" 2>/dev/null || true
-        done
+        done || true
 }
 
 for lib in "${OWNED_LIBS[@]}"; do
