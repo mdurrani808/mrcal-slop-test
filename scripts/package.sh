@@ -100,7 +100,7 @@ if is_linux; then
         /usr/lib/aarch64-linux-gnu
         /usr/lib64
     )
-    for syslib in libstb; do
+    for syslib in libstb liblapack libgfortran libquadmath; do
         for dir in "${SYSTEM_LIB_SEARCH_DIRS[@]}"; do
             [[ -d "$dir" ]] || continue
             find "$dir" -maxdepth 1 -name "${syslib}.so*" -not -type d \
