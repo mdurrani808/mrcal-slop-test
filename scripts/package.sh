@@ -100,15 +100,27 @@ if is_linux; then
         /usr/lib/aarch64-linux-gnu
         /usr/lib64
     )
-    for syslib in libstb liblapack libgfortran libquadmath; do
+    for syslib in libstb libgfortran libquadmath; do
         for dir in "${SYSTEM_LIB_SEARCH_DIRS[@]}"; do
             [[ -d "$dir" ]] || continue
             find "$dir" -maxdepth 1 -name "${syslib}.so*" -not -type d \
                 2>/dev/null | while read -r f; do
-                    cp -a "$f" "$STAGE_DIR/lib/" 2>/dev/null || true
+                    cp -L "$f" "$STAGE_DIR/lib/$(basename "$f")" 2>/dev/null || true
                 done
         done
     done
+
+    # liblapack.so.3 is managed by update-alternatives and typically resolves to
+    # the system OpenBLAS — which we already bundle. Create a relative symlink
+    # rather than copying an absolute alternatives chain that breaks off-system.
+    if [[ ! -e "$STAGE_DIR/lib/liblapack.so.3" ]]; then
+        for ob in libopenblas.so libopenblas.so.0; do
+            if [[ -e "$STAGE_DIR/lib/$ob" ]]; then
+                ln -sf "$ob" "$STAGE_DIR/lib/liblapack.so.3"
+                break
+            fi
+        done
+    fi
 fi
 
 # libomp — SuiteSparse (libcholmod, libsuitesparseconfig) links against
