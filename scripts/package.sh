@@ -2,16 +2,18 @@
 # Assemble a relocatable tarball from the install prefix.
 #
 # What goes in:
-#   bin/   - mrcal-*, mrgingham, vnlog CLI tools
-#   lib/   - libmrcal, libmrgingham, libdogleg, libvnlog +
-#            all transitive .so/.dylib deps from our prefix
-#   include/mrcal/  - public headers
+#   bin/      - mrcal-*, mrgingham, vnlog CLI tools
+#   lib/      - libmrcal, libmrgingham, libdogleg, libvnlog +
+#               all transitive .so/.dylib deps from our prefix
+#   include/  - mrcal and mrgingham public headers
+#   licenses/ - LICENSE files for all bundled libraries (Apache 2.0 compliance)
 #   lib/cmake/mrcal/ - CMake package config
 #
 # On Linux:  uses patchelf to rewrite RPATH → $ORIGIN/../lib
 # On macOS:  uses install_name_tool to rewrite paths → @loader_path/../lib
 set -euo pipefail
 source "$(dirname "$0")/common.sh"
+source "$(dirname "$0")/versions.sh"
 
 # OS comes from common.sh ("Linux" or "Darwin"); use lowercase only for the filename.
 OS_LOWER="$(echo "$OS" | tr '[:upper:]' '[:lower:]')"
@@ -70,9 +72,11 @@ copy_lib() {
     [[ -d "$INSTALL_PREFIX/lib" ]]   && search_dirs+=("$INSTALL_PREFIX/lib")
     [[ -d "$INSTALL_PREFIX/lib64" ]] && search_dirs+=("$INSTALL_PREFIX/lib64")
     [[ ${#search_dirs[@]} -eq 0 ]] && return 0
-    # Match .so* or .dylib on macOS
+    # Match .so* or .dylib on macOS.
+    # mrcal uses libfoo.dylib.X.Y (symlink → real file) so we need both
+    # libfoo.*.dylib and libfoo.dylib.* to cover all versioning conventions.
     find "${search_dirs[@]}" \
-        -maxdepth 1 \( -name "${name}.so*" -o -name "${name}.dylib" -o -name "${name}.*.dylib" \) \
+        -maxdepth 1 \( -name "${name}.so*" -o -name "${name}.dylib" -o -name "${name}.*.dylib" -o -name "${name}.dylib.*" \) \
         -not -type d \
         2>/dev/null | while read -r f; do
             cp -a "$f" "$STAGE_DIR/lib/" 2>/dev/null || true
@@ -96,7 +100,92 @@ if [[ -d "$INSTALL_PREFIX/include/mrgingham" ]]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 4. Fix up RPATHs so the package is relocatable
+# 4. Collect licenses (required by Apache 2.0, BSD 3-Clause, and LGPL)
+# ---------------------------------------------------------------------------
+log "Collecting licenses..."
+LICENSES_DIR="$STAGE_DIR/licenses"
+mkdir -p "$LICENSES_DIR"
+
+# Copy any standard license/notice files found in a source directory.
+# Returns 0 if at least one file was found, 1 otherwise.
+copy_license_from_dir() {
+    local prefix="$1" srcdir="$2"
+    local found=0
+    [[ -d "$srcdir" ]] || return 1
+    for f in LICENSE LICENSE.txt COPYING COPYING.txt NOTICE NOTICE.txt; do
+        if [[ -f "$srcdir/$f" ]]; then
+            cp "$srcdir/$f" "$LICENSES_DIR/${prefix}-${f}"
+            found=1
+        fi
+    done
+    return $((1 - found))
+}
+
+# Fetch a single license file from a URL if not already present.
+fetch_license() {
+    local dest="$LICENSES_DIR/$1" url="$2"
+    [[ -f "$dest" ]] && return 0
+    log "Fetching license: $1"
+    curl -fsSL "$url" -o "$dest" 2>/dev/null \
+        || log "WARNING: could not fetch license for $1 from $url"
+}
+
+# --- Git-cloned projects (always present in WORK_DIR after a successful build) ---
+
+# mrcal — Apache 2.0
+# Apache 2.0 §4(a): reproduction of NOTICE and LICENSE required in binary distributions.
+copy_license_from_dir "mrcal" "$WORK_DIR/mrcal"
+
+# libdogleg — LGPL
+# LGPL compliance: include license text; shared-lib distribution satisfies relinking requirement.
+copy_license_from_dir "libdogleg" "$WORK_DIR/libdogleg"
+
+# mrgingham — LGPL 2.1+
+# No top-level license file in the repo; fetch the canonical LGPL 2.1 text.
+copy_license_from_dir "mrgingham" "$WORK_DIR/mrgingham" \
+    || fetch_license "mrgingham-LICENSE-LGPL-2.1.txt" \
+        "https://www.gnu.org/licenses/old-licenses/lgpl-2.1.txt"
+
+# vnlog — fetch from repo if present, otherwise skip (no known license file).
+copy_license_from_dir "vnlog" "$WORK_DIR/vnlog" || true
+
+# --- Tarball-extracted projects (may not be in WORK_DIR if fast-path was used) ---
+
+# OpenBLAS — BSD 3-Clause
+copy_license_from_dir "openblas" "$WORK_DIR/OpenBLAS" \
+    || fetch_license "openblas-LICENSE" \
+        "https://raw.githubusercontent.com/OpenMathLib/OpenBLAS/v${OPENBLAS_VERSION}/LICENSE"
+
+# OpenCV — Apache 2.0
+copy_license_from_dir "opencv" "$WORK_DIR/opencv" \
+    || fetch_license "opencv-LICENSE" \
+        "https://raw.githubusercontent.com/opencv/opencv/${OPENCV_VERSION}/LICENSE"
+
+# SuiteSparse — mixed licenses per component.
+# Components we bundle: suitesparse_config (Apache 2.0), AMD/CAMD/COLAMD/CCOLAMD
+# (BSD 3-Clause), CHOLMOD (LGPL 2.1+ for the modules we use).
+if [[ -d "$WORK_DIR/SuiteSparse" ]]; then
+    for comp in SuiteSparse_config AMD CAMD COLAMD CCOLAMD CHOLMOD; do
+        for f in License.txt LICENSE.txt Doc/License.txt Doc/LICENSE.txt; do
+            src="$WORK_DIR/SuiteSparse/$comp/$f"
+            if [[ -f "$src" ]]; then
+                cp "$src" "$LICENSES_DIR/suitesparse-${comp}-LICENSE.txt"
+                break
+            fi
+        done
+    done
+else
+    # Fast-path fallback: fetch per-component license files from GitHub.
+    for comp in AMD CAMD COLAMD CCOLAMD CHOLMOD; do
+        fetch_license "suitesparse-${comp}-LICENSE.txt" \
+            "https://raw.githubusercontent.com/DrTimothyAldenDavis/SuiteSparse/v${SUITESPARSE_VERSION}/${comp}/Doc/License.txt"
+    done
+    fetch_license "suitesparse-config-LICENSE.txt" \
+        "https://raw.githubusercontent.com/DrTimothyAldenDavis/SuiteSparse/v${SUITESPARSE_VERSION}/SuiteSparse_config/License.txt"
+fi
+
+# ---------------------------------------------------------------------------
+# 5. Fix up RPATHs so the package is relocatable
 # ---------------------------------------------------------------------------
 log "Fixing RPATHs..."
 fix_rpath_linux() {
@@ -132,7 +221,7 @@ find "$STAGE_DIR/bin" "$STAGE_DIR/lib" -maxdepth 1 -type f | while read -r f; do
 done
 
 # ---------------------------------------------------------------------------
-# 5. Write CMake package config
+# 6. Write CMake package config
 # ---------------------------------------------------------------------------
 log "Writing CMake config..."
 CMAKE_DIR="$STAGE_DIR/lib/cmake/mrcal"
@@ -208,7 +297,7 @@ endif()
 EOF
 
 # ---------------------------------------------------------------------------
-# 6. Create tarball
+# 7. Create tarball
 # ---------------------------------------------------------------------------
 TARBALL="$OUT_DIR/${PKG_NAME}.tar.gz"
 log "Creating $TARBALL ..."
