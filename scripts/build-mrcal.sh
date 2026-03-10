@@ -34,7 +34,11 @@ NUMPY_INC="$(python3 -c 'import numpy; print(numpy.get_include())' 2>/dev/null |
 
 # numpysane is required by mrcal-genpywrap.py at build time.
 if ! python3 -c 'import numpysane' 2>/dev/null; then
-    python3 -m pip install --quiet numpysane
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+        python3 -m pip install --quiet --break-system-packages numpysane
+    else
+        python3 -m pip install --quiet numpysane
+    fi
 fi
 
 # stb_image.h — on macOS brew has no 'stb' formula; download the header directly.

@@ -36,6 +36,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # (we suppress them at install time but they still compile).
     python3-dev \
     python3-numpy \
+    python3-pip \
     # For mrbuild and vnlog
     python3 \
     # Perl module needed by mrcal's minimath_generate.pl
