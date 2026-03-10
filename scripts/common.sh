@@ -10,10 +10,8 @@ WORK_DIR="${WORK_DIR:-/tmp/mrcal-build}"
 # Where all deps (and mrcal) are installed
 INSTALL_PREFIX="${INSTALL_PREFIX:-$REPO_ROOT/install}"
 
-# Parallelism
 NPROC="${NPROC:-$(nproc 2>/dev/null || sysctl -n hw.logicalcpu 2>/dev/null || echo 4)}"
 
-# Operating system — raw uname output: "Linux" or "Darwin".
 OS="$(uname -s)"
 
 is_linux() { [[ "$OS" == "Linux" ]]; }
@@ -23,20 +21,10 @@ export PKG_CONFIG_PATH="$INSTALL_PREFIX/lib/pkgconfig:$INSTALL_PREFIX/lib64/pkgc
 export CMAKE_PREFIX_PATH="$INSTALL_PREFIX:${CMAKE_PREFIX_PATH:-}"
 export PATH="$INSTALL_PREFIX/bin:$PATH"
 
-# mrbuild installs its Makefile fragments to $prefix/share/mrbuild by default.
-# Point projects at our local mrbuild installation.
 export MRBUILD_MK="$INSTALL_PREFIX/share/mrbuild"
 
-# Standard args for every mrbuild 'make install'.
-#
-# DESTDIR=$INSTALL_PREFIX  — install directly into our prefix (non-empty,
-#                            satisfies mrbuild's DESTDIR check).
-# USRLIB=lib               — override mrbuild's multiarch lib path
-#                            (usr/lib/x86_64-linux-gnu on Debian) so .so files
-#                            land in $INSTALL_PREFIX/lib/ not /usr/lib/…
-# INSTALL_ROOT_BIN/MAN     — strip the /usr prefix from the default paths.
-# INSTALL_ROOT_INCLUDE     — preserve the per-project subdir ($(PROJECT_NAME))
-#                            but rooted at /include rather than /usr/include.
+# Shared args for all mrbuild 'make install' calls. Keeps everything under
+# $INSTALL_PREFIX with flat lib/ and bin/ dirs instead of Debian multiarch paths.
 MRBUILD_INSTALL_ARGS=(
     "DESTDIR=$INSTALL_PREFIX"
     USRLIB=lib
@@ -44,13 +32,12 @@ MRBUILD_INSTALL_ARGS=(
     'INSTALL_ROOT_INCLUDE=/include/$(PROJECT_NAME)'
     INSTALL_ROOT_DATA=/share
     INSTALL_ROOT_DOC=/share/doc
-    DIST_MAN=       # skip man pages — not shipped and generation can fail
+    DIST_MAN=       # skip man pages
 )
 
 log() { echo "==> $*"; }
 
-# Skip a build step if sentinel file already exists.
-# Usage: already_built <sentinel_name> && return 0
+# Usage: already_built <name> && exit 0
 already_built() {
     local sentinel="$WORK_DIR/.built_$1"
     if [[ -f "$sentinel" ]]; then
@@ -64,26 +51,30 @@ mark_built() {
     touch "$WORK_DIR/.built_$1"
 }
 
-# Download a source tarball (skips curl if already on disk), then extract it.
-# Retries the download up to 3 times on transient network failures.
 # Usage: download_tarball <url> <tarball_path> <extract_dir> [strip_components]
 download_tarball() {
     local url="$1" tarball="$2" destdir="$3" strip="${4:-1}"
     if [[ ! -f "$tarball" ]]; then
         log "Downloading $(basename "$tarball")..."
+        local downloaded=0
         for attempt in 1 2 3; do
-            curl -fsSL "$url" -o "$tarball" && break
+            if curl -fsSL "$url" -o "$tarball"; then
+                downloaded=1
+                break
+            fi
             echo "Download attempt $attempt failed for $(basename "$tarball"), retrying..." >&2
             rm -f "$tarball"
             sleep 5
         done
-        # If curl still failed after all retries the file won't exist; let tar fail loudly.
+        if [[ $downloaded -eq 0 ]]; then
+            echo "ERROR: Failed to download $(basename "$tarball") after 3 attempts." >&2
+            exit 1
+        fi
     fi
     mkdir -p "$destdir"
     tar -xf "$tarball" -C "$destdir" --strip-components="$strip"
 }
 
-# Clone or update a git repo, then checkout a specific ref.
 # Usage: git_clone_or_update <dir> <url> <ref>
 git_clone_or_update() {
     local dir="$1" url="$2" ref="$3"
@@ -99,9 +90,7 @@ git_clone_or_update() {
 
 mkdir -p "$WORK_DIR" "$INSTALL_PREFIX"
 
-# mrbuild's install step has several post-install operations that use
-# $(DESTDIR)/usr/bin/ hardcoded (chrpath, chmod) even when INSTALL_ROOT_BIN
-# is overridden to /bin.  Create a usr/bin symlink so those operations find
-# the right files without error.
+# mrbuild hardcodes $(DESTDIR)/usr/bin in some post-install steps even when
+# INSTALL_ROOT_BIN is overridden — symlink it so those steps don't fail.
 mkdir -p "$INSTALL_PREFIX/bin" "$INSTALL_PREFIX/usr"
 ln -sfn "$INSTALL_PREFIX/bin" "$INSTALL_PREFIX/usr/bin"

@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 # Install OpenCV (needed by mrgingham).
 #
-# Fast path (preferred):
-#   Linux  — copies the system libopencv-dev into INSTALL_PREFIX
-#   macOS  — copies the Homebrew opencv into INSTALL_PREFIX
-# Slow path (fallback): builds from source.
+# Fast path: copy from system apt or Homebrew into $INSTALL_PREFIX.
+# Slow path: build from source (minimal module set).
 set -euo pipefail
 source "$(dirname "$0")/../common.sh"
 source "$(dirname "$0")/../versions.sh"
@@ -12,7 +10,7 @@ source "$(dirname "$0")/../versions.sh"
 already_built "opencv" && exit 0
 
 # ---------------------------------------------------------------------------
-# Helper: copy an installed opencv into INSTALL_PREFIX.
+# Helper: copy an installed OpenCV into $INSTALL_PREFIX.
 # Arguments: <lib-dir> <include-dir> [cmake-config-dir]
 # ---------------------------------------------------------------------------
 install_from_prefix() {
@@ -20,19 +18,17 @@ install_from_prefix() {
 
     mkdir -p "$INSTALL_PREFIX/lib" "$INSTALL_PREFIX/include"
 
-    # Copy all libopencv_* shared libs — dereference symlinks for real files.
     find "$libdir" -maxdepth 1 \
         \( -name 'libopencv_*.so*' -o -name 'libopencv_*.dylib' -o -name 'libopencv_*.*.dylib' \) \
         | while read -r f; do
             cp -LRf "$f" "$INSTALL_PREFIX/lib/" 2>/dev/null || cp -Rf "$f" "$INSTALL_PREFIX/lib/"
         done
 
-    # Headers — keep the opencv4/ subdir that #include <opencv2/…> expects.
+    # Keep the opencv4/ subdir that #include <opencv2/…> expects.
     if [[ -d "$incdir/opencv4" ]]; then
         cp -rn "$incdir/opencv4" "$INSTALL_PREFIX/include/" 2>/dev/null || true
     fi
 
-    # CMake config files — needed for find_package(OpenCV) in downstream builds.
     if [[ -n "$cmakedir" && -d "$cmakedir" ]]; then
         mkdir -p "$INSTALL_PREFIX/lib/cmake"
         cp -r "$cmakedir" "$INSTALL_PREFIX/lib/cmake/"
@@ -40,9 +36,9 @@ install_from_prefix() {
 }
 
 # ---------------------------------------------------------------------------
-# Fast path: Linux with a system-installed libopencv-dev
+# Fast path: Linux system OpenCV
 # ---------------------------------------------------------------------------
-if [[ "$OS" == "Linux" ]]; then
+if is_linux; then
     LIBOPENCV="$(ldconfig -p 2>/dev/null | awk '/libopencv_core\.so /{print $NF}' | head -1)"
     if [[ -n "$LIBOPENCV" ]]; then
         log "Using system OpenCV."
@@ -61,9 +57,9 @@ if [[ "$OS" == "Linux" ]]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Fast path: macOS with Homebrew opencv
+# Fast path: Homebrew opencv
 # ---------------------------------------------------------------------------
-if [[ "$OS" == "Darwin" ]] && command -v brew &>/dev/null; then
+if is_macos && command -v brew &>/dev/null; then
     if ! brew list opencv &>/dev/null; then
         log "Installing OpenCV via Homebrew..."
         brew install opencv

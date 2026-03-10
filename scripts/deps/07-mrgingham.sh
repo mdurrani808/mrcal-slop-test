@@ -12,9 +12,8 @@ git_clone_or_update "$SRCDIR" "https://github.com/dkogan/mrgingham.git" "$MRGING
 cd "$SRCDIR"
 ln -sfn "$MRBUILD_MK" "$SRCDIR/mrbuild"
 
-# mrgingham_pywrap.c uses GCC-specific nested functions that Clang doesn't
-# support. On macOS we replace it with a minimal stub that compiles cleanly.
-# The Python extension is suppressed at install time anyway (DIST_PY3_MODULES=).
+# mrgingham_pywrap.c uses GCC nested functions that Clang doesn't support.
+# Replace it with a minimal stub that compiles cleanly on macOS.
 if is_macos; then
     cat > "$SRCDIR/mrgingham_pywrap.c" <<'EOF'
 #define PY_SSIZE_T_CLEAN
@@ -27,7 +26,6 @@ EOF
 fi
 
 # Boost headers are needed for voronoi tessellation (boost/polygon/voronoi.hpp).
-# On macOS they aren't in a standard search path, so locate them via brew.
 BOOST_INC=""
 if is_macos && command -v brew &>/dev/null; then
     if ! brew list boost &>/dev/null; then
@@ -36,8 +34,8 @@ if is_macos && command -v brew &>/dev/null; then
     BOOST_INC="$(brew --prefix boost)/include"
 fi
 
-# Numpy headers are needed to compile mrgingham_pywrap.c even though we
-# suppress the Python module at install time.
+# Numpy headers are needed to compile mrgingham_pywrap.c even though we suppress
+# the Python module at install time.
 NUMPY_INC="$(python3 -c 'import numpy; print(numpy.get_include())' 2>/dev/null || true)"
 
 export CFLAGS="-I$INSTALL_PREFIX/include${BOOST_INC:+ -I$BOOST_INC}${NUMPY_INC:+ -I$NUMPY_INC}"

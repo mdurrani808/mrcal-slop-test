@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
-# Install OpenBLAS (provides BLAS + LAPACK, needed by SuiteSparse → libdogleg).
+# Install OpenBLAS (BLAS + LAPACK, needed by SuiteSparse and libdogleg).
 #
-# Fast path (preferred):
-#   Linux  — copies the system libopenblas-dev into INSTALL_PREFIX
-#   macOS  — copies the Homebrew openblas into INSTALL_PREFIX
-# Slow path (fallback): builds from source.
+# Fast path: copy from system apt or Homebrew into $INSTALL_PREFIX.
+# Slow path: build from source.
 set -euo pipefail
 source "$(dirname "$0")/../common.sh"
 source "$(dirname "$0")/../versions.sh"
@@ -12,7 +10,7 @@ source "$(dirname "$0")/../versions.sh"
 already_built "openblas" && exit 0
 
 # ---------------------------------------------------------------------------
-# Helper: copy an installed openblas into INSTALL_PREFIX.
+# Helper: copy an installed openblas into $INSTALL_PREFIX.
 # Arguments: <lib-dir> <include-dir>
 # ---------------------------------------------------------------------------
 install_from_prefix() {
@@ -20,12 +18,10 @@ install_from_prefix() {
 
     mkdir -p "$INSTALL_PREFIX/lib" "$INSTALL_PREFIX/include"
 
-    # Copy all libopenblas* — dereference symlinks so we get real files.
     find "$libdir" -maxdepth 1 -name 'libopenblas*' | while read -r f; do
         cp -LRf "$f" "$INSTALL_PREFIX/lib/"
     done
 
-    # Copy headers.
     if [[ -d "$incdir/openblas" ]]; then
         cp -rn "$incdir/openblas/." "$INSTALL_PREFIX/include/openblas/"
     fi
@@ -33,7 +29,7 @@ install_from_prefix() {
         [[ -f "$incdir/$h" ]] && cp -n "$incdir/$h" "$INSTALL_PREFIX/include/" || true
     done
 
-    # Write a minimal pkgconfig so downstream projects find libs in INSTALL_PREFIX.
+    # Write a pkgconfig file so downstream projects find libs in $INSTALL_PREFIX.
     mkdir -p "$INSTALL_PREFIX/lib/pkgconfig"
     cat > "$INSTALL_PREFIX/lib/pkgconfig/openblas.pc" <<EOF
 prefix=${INSTALL_PREFIX}
@@ -49,15 +45,13 @@ EOF
 }
 
 # ---------------------------------------------------------------------------
-# Fast path: Linux with a system-installed libopenblas (e.g. apt libopenblas-dev)
+# Fast path: Linux system OpenBLAS
 # ---------------------------------------------------------------------------
-if [[ "$OS" == "Linux" ]]; then
-    # ldconfig -p is always available and doesn't require pkg-config.
+if is_linux; then
     LIBOPENBLAS="$(ldconfig -p 2>/dev/null | awk '/libopenblas\.so /{print $NF}' | head -1)"
     if [[ -n "$LIBOPENBLAS" ]]; then
         log "Using system OpenBLAS at $LIBOPENBLAS"
         LIBDIR="$(dirname "$LIBOPENBLAS")"
-        # Find the header directory.
         INCDIR=/usr/include
         for d in /usr/include/openblas /usr/include/x86_64-linux-gnu /usr/include/aarch64-linux-gnu; do
             [[ -f "$d/cblas.h" ]] && { INCDIR="$d"; break; }
@@ -70,9 +64,9 @@ if [[ "$OS" == "Linux" ]]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Fast path: macOS with Homebrew openblas
+# Fast path: Homebrew openblas
 # ---------------------------------------------------------------------------
-if [[ "$OS" == "Darwin" ]] && command -v brew &>/dev/null; then
+if is_macos && command -v brew &>/dev/null; then
     if ! brew list openblas &>/dev/null; then
         log "Installing OpenBLAS via Homebrew..."
         brew install openblas
@@ -80,7 +74,6 @@ if [[ "$OS" == "Darwin" ]] && command -v brew &>/dev/null; then
     BREW_PREFIX="$(brew --prefix openblas)"
     install_from_prefix "$BREW_PREFIX/lib" "$BREW_PREFIX/include"
 
-    # Homebrew's pkgconfig may not be on PKG_CONFIG_PATH yet; write one ourselves.
     if [[ -f "$BREW_PREFIX/lib/pkgconfig/openblas.pc" ]]; then
         mkdir -p "$INSTALL_PREFIX/lib/pkgconfig"
         sed \
@@ -106,7 +99,7 @@ TARBALL="$WORK_DIR/OpenBLAS-$OPENBLAS_VERSION.tar.gz"
 download_tarball "$URL" "$TARBALL" "$SRCDIR"
 
 EXTRA_FLAGS=""
-if [[ "$OS" == "Darwin" ]]; then
+if is_macos; then
     EXTRA_FLAGS="DYNAMIC_ARCH=0"
 else
     EXTRA_FLAGS="DYNAMIC_ARCH=1"

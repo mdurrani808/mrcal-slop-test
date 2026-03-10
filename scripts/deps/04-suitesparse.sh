@@ -1,13 +1,11 @@
 #!/usr/bin/env bash
 # Install SuiteSparse (provides CHOLMOD, needed by libdogleg).
 #
-# Fast path (preferred):
-#   Linux  — uses apt if the installed version is ≥ 7 (Ubuntu 24.04+)
-#   macOS  — uses Homebrew suite-sparse (always 7.x)
-# Slow path (fallback): builds from source.
+# Fast path: copy from system apt or Homebrew into $INSTALL_PREFIX.
+# Slow path: build from source.
 #
 # Ubuntu 22.04 ships SuiteSparse 5.x which is API-incompatible with the
-# libdogleg we build; on those systems we always build 7.x from source.
+# libdogleg we build — on those systems we always build 7.x from source.
 set -euo pipefail
 source "$(dirname "$0")/../common.sh"
 source "$(dirname "$0")/../versions.sh"
@@ -15,7 +13,7 @@ source "$(dirname "$0")/../versions.sh"
 already_built "suitesparse" && exit 0
 
 # ---------------------------------------------------------------------------
-# Helper: copy an installed SuiteSparse into INSTALL_PREFIX.
+# Helper: copy an installed SuiteSparse into $INSTALL_PREFIX.
 # Arguments: <lib-dir> <include-dir> [cmake-dir]
 # ---------------------------------------------------------------------------
 install_from_prefix() {
@@ -23,7 +21,6 @@ install_from_prefix() {
 
     mkdir -p "$INSTALL_PREFIX/lib" "$INSTALL_PREFIX/include"
 
-    # Copy all SuiteSparse shared libs — dereference symlinks.
     for name in libsuitesparseconfig libcholmod libamd libcamd libcolamd libccolamd; do
         find "$libdir" -maxdepth 1 \
             \( -name "${name}.so*" -o -name "${name}.dylib" -o -name "${name}.*.dylib" \) \
@@ -32,16 +29,13 @@ install_from_prefix() {
             done
     done
 
-    # Headers — keep the suitesparse/ subdir that downstream code expects.
     if [[ -d "$incdir/suitesparse" ]]; then
         cp -rn "$incdir/suitesparse" "$INSTALL_PREFIX/include/" 2>/dev/null || true
     fi
-    # Some installs put headers directly in include/.
     for h in cholmod.h SuiteSparse_config.h amd.h camd.h colamd.h ccolamd.h; do
         [[ -f "$incdir/$h" ]] && cp -n "$incdir/$h" "$INSTALL_PREFIX/include/" 2>/dev/null || true
     done
 
-    # CMake config files.
     if [[ -n "$cmakedir" && -d "$cmakedir" ]]; then
         mkdir -p "$INSTALL_PREFIX/lib/cmake"
         cp -rn "$cmakedir/." "$INSTALL_PREFIX/lib/cmake/" 2>/dev/null || true
@@ -51,7 +45,7 @@ install_from_prefix() {
 # ---------------------------------------------------------------------------
 # Fast path: Linux apt — only if version ≥ 7 (API-compatible with libdogleg)
 # ---------------------------------------------------------------------------
-if [[ "$OS" == "Linux" ]] && command -v dpkg-query &>/dev/null; then
+if is_linux && command -v dpkg-query &>/dev/null; then
     SS_VER="$(dpkg-query -W -f='${Version}' libsuitesparse-dev 2>/dev/null || true)"
     # Strip epoch prefix (e.g. "1:7.7.0+dfsg-1" → "7")
     SS_MAJOR="$(echo "$SS_VER" | sed 's/.*://;s/\..*//')"
@@ -75,9 +69,9 @@ if [[ "$OS" == "Linux" ]] && command -v dpkg-query &>/dev/null; then
 fi
 
 # ---------------------------------------------------------------------------
-# Fast path: macOS with Homebrew suite-sparse (always provides 7.x)
+# Fast path: Homebrew suite-sparse (always 7.x)
 # ---------------------------------------------------------------------------
-if [[ "$OS" == "Darwin" ]] && command -v brew &>/dev/null; then
+if is_macos && command -v brew &>/dev/null; then
     if ! brew list suite-sparse &>/dev/null; then
         log "Installing SuiteSparse via Homebrew..."
         brew install suite-sparse
@@ -103,9 +97,10 @@ URL="https://github.com/DrTimothyAldenDavis/SuiteSparse/archive/refs/tags/v$SUIT
 TARBALL="$WORK_DIR/SuiteSparse-$SUITESPARSE_VERSION.tar.gz"
 download_tarball "$URL" "$TARBALL" "$SRCDIR"
 
-OPENBLAS_LIB="$INSTALL_PREFIX/lib/libopenblas.so"
-if [[ "$OS" == "Darwin" ]]; then
+if is_macos; then
     OPENBLAS_LIB="$INSTALL_PREFIX/lib/libopenblas.dylib"
+else
+    OPENBLAS_LIB="$INSTALL_PREFIX/lib/libopenblas.so"
 fi
 
 cd "$SRCDIR"

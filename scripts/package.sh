@@ -31,14 +31,11 @@ mkdir -p "$STAGE_DIR"/{bin,lib,include} "$OUT_DIR"
 # 1. Collect binaries
 # ---------------------------------------------------------------------------
 log "Collecting binaries..."
-# mrcal CLI tools (mrcal-calibrate-cameras, mrcal-show-*, etc.)
 find "$INSTALL_PREFIX/bin" -maxdepth 1 -name 'mrcal-*' -type f \
     -exec cp -a {} "$STAGE_DIR/bin/" \;
-# mrgingham tools
 for bin in mrgingham mrgingham-observe-pixel-uncertainty mrgingham-rotate-corners; do
     [[ -f "$INSTALL_PREFIX/bin/$bin" ]] && cp -a "$INSTALL_PREFIX/bin/$bin" "$STAGE_DIR/bin/"
 done
-# vnlog tools
 find "$INSTALL_PREFIX/bin" -maxdepth 1 -name 'vnl-*' -type f \
     -exec cp -a {} "$STAGE_DIR/bin/" \;
 
@@ -46,7 +43,7 @@ find "$INSTALL_PREFIX/bin" -maxdepth 1 -name 'vnl-*' -type f \
 # 2. Collect our non-system shared libraries
 # ---------------------------------------------------------------------------
 log "Collecting libraries..."
-# The set of libs we own (not system libs like libc, libpthread, libm, libz …)
+# Libs we bundle — everything except system libs like libc/libpthread/libm.
 OWNED_LIBS=(
     libmrcal
     libmrgingham
@@ -72,9 +69,7 @@ copy_lib() {
     [[ -d "$INSTALL_PREFIX/lib" ]]   && search_dirs+=("$INSTALL_PREFIX/lib")
     [[ -d "$INSTALL_PREFIX/lib64" ]] && search_dirs+=("$INSTALL_PREFIX/lib64")
     [[ ${#search_dirs[@]} -eq 0 ]] && return 0
-    # Match .so* or .dylib on macOS.
-    # mrcal uses libfoo.dylib.X.Y (symlink → real file) so we need both
-    # libfoo.*.dylib and libfoo.dylib.* to cover all versioning conventions.
+    # Match both libfoo.*.dylib and libfoo.dylib.* — macOS uses both conventions.
     find "${search_dirs[@]}" \
         -maxdepth 1 \( -name "${name}.so*" -o -name "${name}.dylib" -o -name "${name}.*.dylib" -o -name "${name}.dylib.*" \) \
         -not -type d \
@@ -87,12 +82,8 @@ for lib in "${OWNED_LIBS[@]}"; do
     copy_lib "$lib"
 done
 
-# Some deps are installed via the system package manager (apt/brew) rather than
-# built into $INSTALL_PREFIX, so copy_lib won't find them.  Bundle them
-# explicitly so the tarball is self-contained.
-#
-# libstb — Ubuntu packages stb_image as a shared lib (libstb.so.0); mrcal
-#           links against it dynamically on Linux.
+# Some deps come from apt/brew rather than our build prefix, so copy_lib won't
+# find them. Bundle them explicitly to keep the tarball self-contained.
 if is_linux; then
     SYSTEM_LIB_SEARCH_DIRS=(
         /usr/lib
@@ -110,9 +101,8 @@ if is_linux; then
         done
     done
 
-    # liblapack.so.3 is managed by update-alternatives and typically resolves to
-    # the system OpenBLAS — which we already bundle. Create a relative symlink
-    # rather than copying an absolute alternatives chain that breaks off-system.
+    # liblapack.so.3 is managed by update-alternatives with absolute symlinks that
+    # break off-system. Point it at our bundled OpenBLAS instead.
     if [[ ! -e "$STAGE_DIR/lib/liblapack.so.3" ]]; then
         for ob in libopenblas.so libopenblas.so.0; do
             if [[ -e "$STAGE_DIR/lib/$ob" ]]; then
@@ -123,8 +113,7 @@ if is_linux; then
     fi
 fi
 
-# libomp — SuiteSparse (libcholmod, libsuitesparseconfig) links against
-#           libomp.dylib which is installed by Homebrew, not into $INSTALL_PREFIX.
+# libomp is a Homebrew dep of SuiteSparse, not in $INSTALL_PREFIX.
 if is_macos; then
     BREW_LIBOMP_DIRS=(
         /opt/homebrew/opt/libomp/lib   # Apple Silicon
@@ -158,8 +147,7 @@ log "Collecting licenses..."
 LICENSES_DIR="$STAGE_DIR/licenses"
 mkdir -p "$LICENSES_DIR"
 
-# Copy any standard license/notice files found in a source directory.
-# Returns 0 if at least one file was found, 1 otherwise.
+# Copies any standard license files from a source dir into $LICENSES_DIR.
 copy_license_from_dir() {
     local prefix="$1" srcdir="$2"
     local found=0
@@ -173,7 +161,7 @@ copy_license_from_dir() {
     return $((1 - found))
 }
 
-# Fetch a single license file from a URL if not already present.
+# Fetches a license file from a URL if not already present.
 fetch_license() {
     local dest="$LICENSES_DIR/$1" url="$2"
     [[ -f "$dest" ]] && return 0
@@ -182,40 +170,26 @@ fetch_license() {
         || log "WARNING: could not fetch license for $1 from $url"
 }
 
-# --- Git-cloned projects (always present in WORK_DIR after a successful build) ---
-
-# mrcal — Apache 2.0
-# Apache 2.0 §4(a): reproduction of NOTICE and LICENSE required in binary distributions.
 copy_license_from_dir "mrcal" "$WORK_DIR/mrcal"
-
-# libdogleg — LGPL
-# LGPL compliance: include license text; shared-lib distribution satisfies relinking requirement.
 copy_license_from_dir "libdogleg" "$WORK_DIR/libdogleg"
 
-# mrgingham — LGPL 2.1+
-# No top-level license file in the repo; fetch the canonical LGPL 2.1 text.
+# mrgingham has no top-level license file in its repo — fall back to the canonical text.
 copy_license_from_dir "mrgingham" "$WORK_DIR/mrgingham" \
     || fetch_license "mrgingham-LICENSE-LGPL-2.1.txt" \
         "https://www.gnu.org/licenses/old-licenses/lgpl-2.1.txt"
 
-# vnlog — fetch from repo if present, otherwise skip (no known license file).
 copy_license_from_dir "vnlog" "$WORK_DIR/vnlog" || true
 
-# --- Tarball-extracted projects (may not be in WORK_DIR if fast-path was used) ---
-
-# OpenBLAS — BSD 3-Clause
+# Tarball-extracted projects may not be in WORK_DIR if the fast path was used — fetch from GitHub.
 copy_license_from_dir "openblas" "$WORK_DIR/OpenBLAS" \
     || fetch_license "openblas-LICENSE" \
         "https://raw.githubusercontent.com/OpenMathLib/OpenBLAS/v${OPENBLAS_VERSION}/LICENSE"
 
-# OpenCV — Apache 2.0
 copy_license_from_dir "opencv" "$WORK_DIR/opencv" \
     || fetch_license "opencv-LICENSE" \
         "https://raw.githubusercontent.com/opencv/opencv/${OPENCV_VERSION}/LICENSE"
 
-# SuiteSparse — mixed licenses per component.
-# Components we bundle: suitesparse_config (Apache 2.0), AMD/CAMD/COLAMD/CCOLAMD
-# (BSD 3-Clause), CHOLMOD (LGPL 2.1+ for the modules we use).
+# SuiteSparse has per-component licenses (Apache 2.0, BSD 3-Clause, LGPL 2.1+).
 if [[ -d "$WORK_DIR/SuiteSparse" ]]; then
     for comp in SuiteSparse_config AMD CAMD COLAMD CCOLAMD CHOLMOD; do
         for f in License.txt LICENSE.txt Doc/License.txt Doc/LICENSE.txt; do
@@ -251,28 +225,23 @@ fix_rpath_linux() {
 
 fix_rpath_macos() {
     local file="$1"
-    # Rewrite any dependency that either:
-    #   (a) came from our build prefix, or
-    #   (b) is a lib we bundled from elsewhere (e.g. Homebrew libomp)
-    # so that every bundled lib is referenced as @loader_path/../lib/<name>.
+    # Rewrite deps that came from our prefix or that we bundled (e.g. Homebrew libomp).
     otool -L "$file" 2>/dev/null | awk 'NR>1 {print $1}' | while read -r dep; do
         local base
         base="$(basename "$dep")"
         if [[ "$dep" == "$INSTALL_PREFIX"* ]] || [[ -f "$STAGE_DIR/lib/$base" ]]; then
-            local newname="@loader_path/../lib/$base"
-            install_name_tool -change "$dep" "$newname" "$file" 2>/dev/null || true
+            install_name_tool -change "$dep" "@loader_path/../lib/$base" "$file" 2>/dev/null || true
         fi
     done
-    # For shared libs also fix their own install_name (id)
     if [[ "$file" == *.dylib ]]; then
         install_name_tool -id "@rpath/$(basename "$file")" "$file" 2>/dev/null || true
     fi
 }
 
 find "$STAGE_DIR/bin" "$STAGE_DIR/lib" -maxdepth 1 -type f | while read -r f; do
-    if [[ "$OS" == "Linux" ]]; then
+    if is_linux; then
         fix_rpath_linux "$f"
-    elif [[ "$OS" == "Darwin" ]]; then
+    elif is_macos; then
         fix_rpath_macos "$f"
     fi
 done

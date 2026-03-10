@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build libdogleg (dog-leg optimizer, core mrcal dep).
+# Build libdogleg (dog-leg optimizer, core mrcal dependency).
 set -euo pipefail
 source "$(dirname "$0")/../common.sh"
 source "$(dirname "$0")/../versions.sh"
@@ -11,8 +11,7 @@ git_clone_or_update "$SRCDIR" "https://github.com/dkogan/libdogleg.git" "$LIBDOG
 
 cd "$SRCDIR"
 
-# choose_mrbuild.mk (included by the project Makefile) looks for a local
-# 'mrbuild/' directory first. Symlink our installed copy so it finds it.
+# choose_mrbuild.mk looks for a local 'mrbuild/' directory first — symlink ours.
 ln -sfn "$MRBUILD_MK" "$SRCDIR/mrbuild"
 
 export CFLAGS="-I$INSTALL_PREFIX/include"

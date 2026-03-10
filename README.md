@@ -21,7 +21,6 @@ Grab a tarball from the [Releases](../../releases) page:
 | `mrcal-*-linux-amd64.tar.gz` | Linux x86-64, WSL2 |
 | `mrcal-*-linux-arm64.tar.gz` | Linux ARM64 |
 | `mrcal-*-Darwin-arm64.tar.gz` | macOS Apple Silicon |
-| `mrcal-*-Darwin-x86_64.tar.gz` | macOS Intel |
 
 Extract anywhere:
 
@@ -63,10 +62,18 @@ If you want to build the binaries yourself (or modify the scripts):
 
 ### Prerequisites
 
-**Linux (Docker):** Docker is the only requirement. The Dockerfile installs
-everything else.
+**Linux:** Install the system packages below, then run the build script directly.
 
-**macOS:** Xcode Command Line Tools + cmake + make. No Homebrew needed.
+```bash
+sudo apt-get install -y \
+  build-essential g++ gfortran cmake git patchelf perl \
+  libpng-dev libjpeg-dev python3-dev python3-numpy python3-pip \
+  liblist-moreutils-perl curl libelf-dev chrpath re2c \
+  libopenblas-dev libopencv-dev libboost-dev libstb-dev
+```
+
+**macOS:** Xcode Command Line Tools only. No Homebrew needed (the scripts
+install Homebrew packages automatically if required).
 
 ```bash
 xcode-select --install
@@ -75,13 +82,6 @@ xcode-select --install
 ### Build
 
 ```bash
-# Linux (produces a Docker image and copies the tarball out)
-docker build -f docker/Dockerfile.linux-amd64 -t mrcal-builder .
-docker create --name tmp mrcal-builder
-docker cp tmp:/artifacts/. ./artifacts/
-docker rm tmp
-
-# macOS (runs natively)
 WORK_DIR=/tmp/mrcal-build \
 INSTALL_PREFIX=/tmp/mrcal-deps \
 OUT_DIR=$PWD/artifacts \
