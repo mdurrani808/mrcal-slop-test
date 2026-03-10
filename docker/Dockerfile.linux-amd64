@@ -32,9 +32,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # mrcal uses libpng / libjpeg for image I/O in its CLI tools
     libpng-dev \
     libjpeg-dev \
-    # Python headers are needed to compile mrcal's Python extension object
-    # even though we won't ship the .so. libmrcal.so itself is Python-free.
+    # Python headers + numpy needed to compile Python wrappers in mrgingham/mrcal
+    # (we suppress them at install time but they still compile).
     python3-dev \
+    python3-numpy \
     # For mrbuild and vnlog
     python3 \
     # curl for downloading release tarballs

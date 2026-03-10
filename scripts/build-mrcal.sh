@@ -21,8 +21,10 @@ ln -sfn "$MRBUILD_MK" "$SRCDIR/mrbuild"
 #   - Install python3-dev on the host (header-only, not a runtime dep of libmrcal.so), OR
 #   - Patch the mrcal Makefile to make Python optional.
 
-export CFLAGS="-I$INSTALL_PREFIX/include"
-export CXXFLAGS="-I$INSTALL_PREFIX/include"
+NUMPY_INC="$(python3 -c 'import numpy; print(numpy.get_include())' 2>/dev/null || true)"
+
+export CFLAGS="-I$INSTALL_PREFIX/include${NUMPY_INC:+ -I$NUMPY_INC}"
+export CXXFLAGS="-I$INSTALL_PREFIX/include${NUMPY_INC:+ -I$NUMPY_INC}"
 export LDFLAGS="-L$INSTALL_PREFIX/lib -Wl,-rpath,$INSTALL_PREFIX/lib"
 
 make -j"$NPROC" PREFIX="$INSTALL_PREFIX" USE_LIBELAS=0
