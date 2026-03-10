@@ -111,6 +111,22 @@ if is_linux; then
     done
 fi
 
+# libomp — SuiteSparse (libcholmod, libsuitesparseconfig) links against
+#           libomp.dylib which is installed by Homebrew, not into $INSTALL_PREFIX.
+if is_macos; then
+    BREW_LIBOMP_DIRS=(
+        /opt/homebrew/opt/libomp/lib   # Apple Silicon
+        /usr/local/opt/libomp/lib      # Intel Mac
+    )
+    for dir in "${BREW_LIBOMP_DIRS[@]}"; do
+        [[ -d "$dir" ]] || continue
+        find "$dir" -maxdepth 1 \( -name "libomp.dylib" -o -name "libomp.*.dylib" \) \
+            -not -type d 2>/dev/null | while read -r f; do
+                cp -a "$f" "$STAGE_DIR/lib/" 2>/dev/null || true
+            done
+    done
+fi
+
 # ---------------------------------------------------------------------------
 # 3. Collect headers (mrcal public API only)
 # ---------------------------------------------------------------------------
@@ -223,10 +239,15 @@ fix_rpath_linux() {
 
 fix_rpath_macos() {
     local file="$1"
-    # Replace any reference to our build-time prefix with @loader_path/../lib
+    # Rewrite any dependency that either:
+    #   (a) came from our build prefix, or
+    #   (b) is a lib we bundled from elsewhere (e.g. Homebrew libomp)
+    # so that every bundled lib is referenced as @loader_path/../lib/<name>.
     otool -L "$file" 2>/dev/null | awk 'NR>1 {print $1}' | while read -r dep; do
-        if [[ "$dep" == "$INSTALL_PREFIX"* ]]; then
-            local newname="@loader_path/../lib/$(basename "$dep")"
+        local base
+        base="$(basename "$dep")"
+        if [[ "$dep" == "$INSTALL_PREFIX"* ]] || [[ -f "$STAGE_DIR/lib/$base" ]]; then
+            local newname="@loader_path/../lib/$base"
             install_name_tool -change "$dep" "$newname" "$file" 2>/dev/null || true
         fi
     done
