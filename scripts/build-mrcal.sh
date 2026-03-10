@@ -44,7 +44,7 @@ fi
 # On macOS, libpng and libjpeg are not in the default include path — add Homebrew prefix.
 PNG_INC=""
 if [[ "$(uname -s)" == "Darwin" ]] && command -v brew &>/dev/null; then
-    for pkg in libpng libjpeg; do
+    for pkg in libpng jpeg jpeg-turbo; do
         prefix="$(brew --prefix "$pkg" 2>/dev/null || true)"
         [[ -n "$prefix" && -d "$prefix/include" ]] && PNG_INC="$PNG_INC -I$prefix/include -L$prefix/lib"
     done
