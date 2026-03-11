@@ -113,20 +113,12 @@ if is_linux; then
     fi
 fi
 
-# libomp is a Homebrew dep of SuiteSparse, not in $INSTALL_PREFIX.
-if is_macos; then
-    BREW_LIBOMP_DIRS=(
-        /opt/homebrew/opt/libomp/lib   # Apple Silicon
-        /usr/local/opt/libomp/lib      # Intel Mac
-    )
-    for dir in "${BREW_LIBOMP_DIRS[@]}"; do
-        [[ -d "$dir" ]] || continue
-        find "$dir" -maxdepth 1 \( -name "libomp.dylib" -o -name "libomp.*.dylib" \) \
-            -not -type d 2>/dev/null | while read -r f; do
-                cp -a "$f" "$STAGE_DIR/lib/" 2>/dev/null || true
-            done
-    done
-fi
+# libomp is intentionally NOT bundled on macOS. All bundled libs that depend
+# on libomp (cholmod, openblas, suitesparseconfig) retain their absolute
+# Homebrew references (/opt/homebrew/opt/libomp/lib/libomp.dylib). This ensures
+# only one OpenMP runtime instance is loaded at runtime, avoiding the
+# "duplicate OpenMP runtime" abort when the consuming app also links OpenBLAS
+# or other Homebrew libs that carry their own libomp reference.
 
 # ---------------------------------------------------------------------------
 # 3. Collect headers (mrcal public API only)
@@ -225,18 +217,19 @@ fix_rpath_linux() {
 
 fix_rpath_macos() {
     local file="$1"
-    # Rewrite deps that came from our prefix or that we bundled (e.g. Homebrew libomp).
+    # Rewrite deps that came from our prefix or that we bundled.
+    # libomp is intentionally excluded: we do NOT bundle it and keep references
+    # pointing at the absolute Homebrew path. This ensures only one OpenMP
+    # runtime is ever loaded (dyld deduplicates by resolved path).
     otool -L "$file" 2>/dev/null | awk 'NR>1 {print $1}' | while read -r dep; do
         local base
         base="$(basename "$dep")"
+        [[ "$base" == "libomp.dylib" ]] && continue
         if [[ "$dep" == "$INSTALL_PREFIX"* ]] || [[ -f "$STAGE_DIR/lib/$base" ]]; then
             install_name_tool -change "$dep" "@loader_path/../lib/$base" "$file" 2>/dev/null || true
         fi
     done
-    # Set the library's own install name. libomp is a special case: keep its
-    # original Homebrew install name so dyld deduplicates it with the system
-    # copy at runtime (avoiding the "duplicate OpenMP runtime" crash).
-    if [[ "$file" == *.dylib ]] && [[ "$(basename "$file")" != "libomp.dylib" ]]; then
+    if [[ "$file" == *.dylib ]]; then
         install_name_tool -id "@rpath/$(basename "$file")" "$file" 2>/dev/null || true
     fi
 }
