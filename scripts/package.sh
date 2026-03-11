@@ -233,7 +233,10 @@ fix_rpath_macos() {
             install_name_tool -change "$dep" "@loader_path/../lib/$base" "$file" 2>/dev/null || true
         fi
     done
-    if [[ "$file" == *.dylib ]]; then
+    # Set the library's own install name. libomp is a special case: keep its
+    # original Homebrew install name so dyld deduplicates it with the system
+    # copy at runtime (avoiding the "duplicate OpenMP runtime" crash).
+    if [[ "$file" == *.dylib ]] && [[ "$(basename "$file")" != "libomp.dylib" ]]; then
         install_name_tool -id "@rpath/$(basename "$file")" "$file" 2>/dev/null || true
     fi
 }
